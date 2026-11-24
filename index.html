@@ -128,10 +128,10 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       <button class="role" id="pickTherapist" type="button">
         <div class="bar-demo"><i style="animation-duration:1.2s"></i></div>
         <strong>I'm the therapist</strong>
-        <span>Get a session code, start and stop sets, and change speed, light and sound live.</span>
+        <span>Get a session code. You alone start and stop sets and change speed, light and sound live.</span>
       </button>
     </div>
-    <p class="fine">Not a substitute for therapy. Use with a qualified EMDR therapist. Either person can stop at any time.</p>
+    <p class="fine">Not a substitute for therapy. Use with a qualified EMDR therapist. Your therapist starts and stops every set.</p>
   </div>
 </section>
 
@@ -140,7 +140,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   <canvas class="stage" id="cStage"></canvas>
   <div class="hud" id="cHud">
     <span class="pill"><span class="dot" id="cDot"></span><span id="cStatus">Not connected</span></span>
-    <div class="right"><button class="btn stop" id="cStop" type="button">Stop</button></div>
   </div>
   <div class="center-note" id="cNote"></div>
   <div class="overlay" id="cJoin">
@@ -152,13 +151,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       <button class="btn primary big" id="cBegin" type="submit">Join session</button>
       <button class="btn small" id="cBack" type="button">Back</button>
     </form>
-  </div>
-  <div class="overlay" id="cPaused" hidden>
-    <div class="card">
-      <h2>Paused</h2>
-      <p>You stopped the session. Your therapist can see that you paused. Take the time you need.</p>
-      <button class="btn primary big" id="cResume" type="button">Resume</button>
-    </div>
   </div>
 </section>
 
@@ -304,12 +296,12 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
 
   // ---------------- player: light + sound on the client device ----------------
   function createPlayer(cv, { onStateChange } = {}) {
-    let S = { ...DEFAULTS }, joined = false, paused = false, allowed = true, lastEpoch = -1;
+    let S = { ...DEFAULTS }, joined = false, allowed = true, lastEpoch = -1;
     let ac = null, master = null, panOsc = null, panGain = null, panner = null, noiseBuf = null, nextTapK = 0, wakeLock = null;
     const m = { phase: 0, t: 0, rate: 1, active: false };
     const now = () => (ac ? ac.currentTime : performance.now() / 1000);
     const advance = (t) => { if (m.active) m.phase += (t - m.t) * m.rate / 2; m.t = t; };
-    const playing = () => joined && allowed && S.running && !paused;
+    const playing = () => joined && allowed && S.running;
 
     function refresh() {
       const t = now(); advance(t);
@@ -406,9 +398,8 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     return {
       join() { initAudio(); joined = true; keepAwake(); if (ac && S.audio === "taps") tap(ac.currentTime + 0.05, -1); refresh(); },
       apply(next) { S = next; refresh(); },
-      setPaused(p) { paused = p; if (!p) initAudio(); refresh(); },
       setAllowed(a) { if (a !== allowed) { allowed = a; refresh(); } },
-      get state() { return S; }, get joined() { return joined; }, get paused() { return paused; },
+      get state() { return S; }, get joined() { return joined; },
       get soundOn() { return !!(ac && ac.state === "running"); }, get playing() { return playing(); },
     };
   }
@@ -561,9 +552,9 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       $("cStatus").textContent = !player.joined ? "Not connected" : !connected ? "Connecting…" : here ? "Therapist connected" : "Waiting for therapist";
       const playing = player.playing;
       $("cHud").classList.toggle("dim", playing);
-      $("cNote").style.opacity = playing || !player.joined || player.paused ? 0 : 1;
+      $("cNote").style.opacity = playing || !player.joined ? 0 : 1;
       $("cNote").textContent = !connected ? "Connecting to the session…" : !here ? "Waiting for your therapist to open the session" : "Your therapist will start the next set";
-      const pres = { role: "client", joined: player.joined, sound: player.soundOn, paused: player.paused, playing };
+      const pres = { role: "client", joined: player.joined, sound: player.soundOn, playing };
       const key = JSON.stringify(pres);
       if (relay && relay.connected() && (force === true || key !== lastPres)) { lastPres = key; relay.setPresence(pres); }
     }
@@ -581,8 +572,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       render();
     });
     $("cBack").onclick = () => { location.hash = ""; };
-    $("cStop").onclick = () => { player.setPaused(true); $("cPaused").hidden = false; render(); };
-    $("cResume").onclick = () => { player.setPaused(false); $("cPaused").hidden = true; render(); };
     setInterval(render, 5000);                 // expire a therapist who vanished
     setInterval(() => render(true), 10000);    // heartbeat so the therapist knows we're still here
     window.addEventListener("pagehide", () => relay && relay.close());
@@ -635,8 +624,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       if (live.length === 0) { box.append(pill("wait", "Waiting for your client to join")); return; }
       live.forEach((c, i) => {
         const p = c.data, name = live.length > 1 ? `Client ${i + 1}` : "Client";
-        if (p.paused) { const a = document.createElement("div"); a.className = "alert"; a.textContent = `${name} pressed Stop and is paused. They'll resume when ready.`; box.append(a); }
-        else box.append(pill("on", `${name} connected · sound ${p.sound ? "on" : "not enabled yet"}${p.playing ? " · following" : ""}`));
+        box.append(pill("on", `${name} connected · sound ${p.sound ? "on" : "not enabled yet"}${p.playing ? " · following" : ""}`));
       });
     }
     $("tCopy").onclick = async () => {
