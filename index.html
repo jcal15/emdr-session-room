@@ -78,6 +78,20 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 .toast.show { opacity: 1; transform: none; }
 .toast.off { border-color: color-mix(in srgb, var(--halt) 55%, transparent); }
 @media (prefers-reduced-motion: reduce) { .toast { transform: none; } }
+.terms { max-width: 72ch; display: grid; gap: 10px; }
+.terms h3 { font-size: 17px; margin-top: 10px; }
+.terms p, .terms li { color: var(--ink); margin: 0; font-size: 15px; line-height: 1.55; }
+.terms ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.terms-updated { color: var(--muted) !important; font-size: 13px !important; }
+#gate, #terms { min-height: 100%; padding-block: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-bottom, 0px) + 40px); }
+.gate-inner { max-width: 760px; margin: 0 auto; display: grid; gap: 18px; }
+.gate-inner h1 { font-size: clamp(26px, 5.5vw, 34px); }
+.gate-summary { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 8px; }
+.gate-summary li { margin: 0; }
+.gate-scroll { max-height: 46vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.agree { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+.agree input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--calm); flex: none; }
+.linkish { background: none; border: 0; padding: 0; color: var(--calm); text-decoration: underline; cursor: pointer; font-size: inherit; }
 .center-note { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); text-align: center; color: var(--muted); font-size: 14px; pointer-events: none; transition: opacity .6s; padding: 0 16px; }
 .err { color: var(--halt); font-size: 14px; min-height: 1.2em; }
 
@@ -118,6 +132,102 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
 </head>
 <body>
 
+<!-- First-visit acceptance -->
+<section id="gate" class="wrap" hidden>
+  <div class="gate-inner">
+    <h1>Before you continue</h1>
+    <ul class="gate-summary">
+      <li><strong>Personal project.</strong> Made by the author only for his own remote EMDR sessions with his therapist. It is on GitHub only for the free hosting and is not offered for anyone else's use.</li>
+      <li><strong>Not a replacement for therapy</strong>, medical advice or a medical device. Use EMDR only with a qualified, licensed clinician.</li>
+      <li><strong>Use entirely at your own risk.</strong> Provided as is, with no warranty. The author accepts no liability for any harm or loss.</li>
+      <li><strong>Moving and flashing light</strong> can trigger seizures in people with photosensitive epilepsy. Trauma work can bring up distressing reactions.</li>
+      <li><strong>Not for emergencies.</strong> In the US call or text 988, or call 911.</li>
+    </ul>
+    <div class="gate-scroll terms" tabindex="0" aria-label="Full disclaimer and terms">
+    <p class="terms-updated">Last updated: November 24, 2026</p>
+
+    <h3>A personal project, not a product or service</h3>
+    <p>This app was created by its author solely for his own use in remote EMDR sessions with his own therapist. It is published on GitHub only because GitHub Pages provides free web hosting. It is not offered, marketed, sold, licensed or intended for use by anyone else. No support, updates, availability or continued hosting is promised, and it may change or disappear at any time without notice.</p>
+
+    <h3>Not therapy, medical advice or a medical device</h3>
+    <p>This app is not a substitute for professional mental-health care, psychotherapy, diagnosis or treatment, and it is not a medical device. It does not provide EMDR therapy; it only displays a moving light and plays sounds. EMDR should only be carried out with a qualified, licensed clinician who is responsible for your care. Nothing in this app is medical or psychological advice. Using it does not create any therapist–client, doctor–patient or other professional relationship with the author.</p>
+
+    <h3>Health and safety risks</h3>
+    <ul>
+      <li>Bilateral stimulation and trauma processing can bring up distressing memories, strong emotions, panic, dissociation or other reactions, during or after use.</li>
+      <li>The moving and flashing light may trigger seizures in people with photosensitive epilepsy and may cause dizziness, eye strain, headaches or nausea. Do not use it if you have a seizure disorder or are sensitive to flashing or moving light, unless your doctor says it is safe.</li>
+      <li>Keep headphone volume at a safe, comfortable level.</li>
+      <li>Never use it while driving, operating machinery, or in any situation where reduced awareness could be dangerous.</li>
+      <li>The client screen intentionally has no stop button; sets are started and stopped by the person using the therapist controls. A client can end a session at any moment by closing the page, locking the device or removing headphones.</li>
+    </ul>
+
+    <h3>Not for emergencies</h3>
+    <p>This app cannot help in a crisis. If you are in danger or thinking about harming yourself, call your local emergency number. In the United States, call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline) or call <strong>911</strong>.</p>
+
+    <h3>Use at your own risk; no warranty</h3>
+    <p>You use this app entirely at your own risk. It is provided "AS IS" and "AS AVAILABLE", with all faults and without warranties of any kind, express or implied, including any warranties of merchantability, fitness for a particular purpose, accuracy, timing, reliability, availability, security or non-infringement. The author does not warrant that the light and sound will be synchronised, that sessions will connect or stay connected, or that the app will be free of errors.</p>
+
+    <h3>Waiver, release and limitation of liability</h3>
+    <p>To the fullest extent permitted by law, you waive and release the author from any and all claims, demands, losses and liability arising from or related to your access to or use of this app, including personal injury, emotional or psychological harm, seizures, loss of data, interrupted sessions, or reliance on anything shown or played by the app. In no event will the author be liable for any direct, indirect, incidental, special, consequential, exemplary or punitive damages, however caused and under any theory of liability, even if advised of the possibility of such damages. If any liability cannot be excluded, it is limited to the amount you paid to use the app, which is zero. You agree to indemnify and hold the author harmless from any claims arising from your use of the app or your breach of these terms.</p>
+
+    <h3>Privacy and third-party services</h3>
+    <p>There are no accounts and the app asks for no personal information; do not enter any. To connect the two screens, session settings and a short session code pass through free public message relays run by third parties (EMQX and HiveMQ), and the page loads files from GitHub, Google Fonts and unpkg. The author does not control these services and cannot guarantee their privacy, security, confidentiality or availability. Anyone who knows a session code could see or send that session's settings. This app is not designed to meet HIPAA or any other health-privacy standard.</p>
+
+    <h3>Who may use it</h3>
+    <p>You must be at least 18 years old and able to agree to these terms. If you do not agree with every part of these terms, do not use the app.</p>
+
+    <h3>General</h3>
+    <p>By using the app you confirm that you have read, understood and accepted this disclaimer. If any part of these terms is found unenforceable, the rest remains in effect. The author may change these terms at any time; continued use means you accept the changes.</p>
+    </div>
+    <label class="agree" for="gateAgree"><input type="checkbox" id="gateAgree"><span>I am 18 or older, I have read and accept this disclaimer, waiver and limitation of liability, and I use this app at my own risk.</span></label>
+    <div><button class="btn primary big" id="gateGo" type="button" disabled>Accept and continue</button></div>
+  </div>
+</section>
+
+<!-- Full terms, linked from the lobby and therapist page -->
+<section id="terms" class="wrap" hidden>
+  <div class="gate-inner">
+    <div><button class="btn small" id="termsBack" type="button">Back</button></div>
+    <h1>Disclaimer &amp; terms</h1>
+    <div class="terms">
+    <p class="terms-updated">Last updated: November 24, 2026</p>
+
+    <h3>A personal project, not a product or service</h3>
+    <p>This app was created by its author solely for his own use in remote EMDR sessions with his own therapist. It is published on GitHub only because GitHub Pages provides free web hosting. It is not offered, marketed, sold, licensed or intended for use by anyone else. No support, updates, availability or continued hosting is promised, and it may change or disappear at any time without notice.</p>
+
+    <h3>Not therapy, medical advice or a medical device</h3>
+    <p>This app is not a substitute for professional mental-health care, psychotherapy, diagnosis or treatment, and it is not a medical device. It does not provide EMDR therapy; it only displays a moving light and plays sounds. EMDR should only be carried out with a qualified, licensed clinician who is responsible for your care. Nothing in this app is medical or psychological advice. Using it does not create any therapist–client, doctor–patient or other professional relationship with the author.</p>
+
+    <h3>Health and safety risks</h3>
+    <ul>
+      <li>Bilateral stimulation and trauma processing can bring up distressing memories, strong emotions, panic, dissociation or other reactions, during or after use.</li>
+      <li>The moving and flashing light may trigger seizures in people with photosensitive epilepsy and may cause dizziness, eye strain, headaches or nausea. Do not use it if you have a seizure disorder or are sensitive to flashing or moving light, unless your doctor says it is safe.</li>
+      <li>Keep headphone volume at a safe, comfortable level.</li>
+      <li>Never use it while driving, operating machinery, or in any situation where reduced awareness could be dangerous.</li>
+      <li>The client screen intentionally has no stop button; sets are started and stopped by the person using the therapist controls. A client can end a session at any moment by closing the page, locking the device or removing headphones.</li>
+    </ul>
+
+    <h3>Not for emergencies</h3>
+    <p>This app cannot help in a crisis. If you are in danger or thinking about harming yourself, call your local emergency number. In the United States, call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline) or call <strong>911</strong>.</p>
+
+    <h3>Use at your own risk; no warranty</h3>
+    <p>You use this app entirely at your own risk. It is provided "AS IS" and "AS AVAILABLE", with all faults and without warranties of any kind, express or implied, including any warranties of merchantability, fitness for a particular purpose, accuracy, timing, reliability, availability, security or non-infringement. The author does not warrant that the light and sound will be synchronised, that sessions will connect or stay connected, or that the app will be free of errors.</p>
+
+    <h3>Waiver, release and limitation of liability</h3>
+    <p>To the fullest extent permitted by law, you waive and release the author from any and all claims, demands, losses and liability arising from or related to your access to or use of this app, including personal injury, emotional or psychological harm, seizures, loss of data, interrupted sessions, or reliance on anything shown or played by the app. In no event will the author be liable for any direct, indirect, incidental, special, consequential, exemplary or punitive damages, however caused and under any theory of liability, even if advised of the possibility of such damages. If any liability cannot be excluded, it is limited to the amount you paid to use the app, which is zero. You agree to indemnify and hold the author harmless from any claims arising from your use of the app or your breach of these terms.</p>
+
+    <h3>Privacy and third-party services</h3>
+    <p>There are no accounts and the app asks for no personal information; do not enter any. To connect the two screens, session settings and a short session code pass through free public message relays run by third parties (EMQX and HiveMQ), and the page loads files from GitHub, Google Fonts and unpkg. The author does not control these services and cannot guarantee their privacy, security, confidentiality or availability. Anyone who knows a session code could see or send that session's settings. This app is not designed to meet HIPAA or any other health-privacy standard.</p>
+
+    <h3>Who may use it</h3>
+    <p>You must be at least 18 years old and able to agree to these terms. If you do not agree with every part of these terms, do not use the app.</p>
+
+    <h3>General</h3>
+    <p>By using the app you confirm that you have read, understood and accepted this disclaimer. If any part of these terms is found unenforceable, the rest remains in effect. The author may change these terms at any time; continued use means you accept the changes.</p>
+    </div>
+  </div>
+</section>
+
 <!-- Lobby -->
 <section id="lobby" class="wrap">
   <div class="lobby-inner">
@@ -137,7 +247,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
         <span>Get a session code. You alone start and stop sets and change speed, light and sound live.</span>
       </button>
     </div>
-    <p class="fine">Not a substitute for therapy. Use with a qualified EMDR therapist. Your therapist starts and stops every set.</p>
+    <p class="fine">A personal project, hosted on GitHub only for the free hosting. Not a substitute for therapy; use at your own risk. Your therapist starts and stops every set. <a class="linkish" href="#terms">Disclaimer &amp; terms</a></p>
   </div>
 </section>
 
@@ -184,6 +294,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     </div>
     <div class="col" id="therapistSlot2"></div>
   </div>
+  <p class="fine" style="max-width:1080px;margin:18px auto 0">Not a substitute for therapy or clinical judgment. Provided as is, at your own risk. <a class="linkish" href="#terms" target="_blank" rel="noopener">Disclaimer &amp; terms</a></p>
 </section>
 
 <!-- Controls (placed into the therapist page) -->
@@ -572,14 +683,25 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   const conductorActive = () => current === "therapist";
   function show(view) {
     current = view;
-    for (const v of ["lobby", "client", "therapist"]) $(v).hidden = v !== view;
+    for (const v of ["gate", "terms", "lobby", "client", "therapist"]) $(v).hidden = v !== view;
+    window.scrollTo(0, 0);
     if (view === "client") startClient();
     if (view === "therapist") startTherapist();
   }
   const params = new URLSearchParams(location.search);
   $("pickClient").onclick = () => { location.hash = "client"; };
   $("pickTherapist").onclick = () => { location.hash = "therapist"; };
-  const route = () => { const h = location.hash.slice(1); show(["client", "therapist"].includes(h) ? h : "lobby"); };
+  const TERMS_KEY = "emdr-terms-accepted-2026-11-24";
+  const accepted = () => store.get(TERMS_KEY) === "yes";
+  const route = () => {
+    const h = location.hash.slice(1);
+    if (h === "terms") return show("terms");
+    if (!accepted()) return show("gate"); // everyone accepts the disclaimer first; the original link is kept
+    show(["client", "therapist"].includes(h) ? h : "lobby");
+  };
+  $("gateAgree").addEventListener("change", (e) => { $("gateGo").disabled = !e.target.checked; });
+  $("gateGo").onclick = () => { if (!$("gateAgree").checked) return; store.set(TERMS_KEY, "yes"); route(); };
+  $("termsBack").onclick = () => { if (history.length > 1 && document.referrer.startsWith(location.origin)) history.back(); else location.hash = ""; };
   window.addEventListener("hashchange", route);
 
   // ---- client ----
