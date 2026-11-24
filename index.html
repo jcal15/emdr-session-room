@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Outfit:wght@400;500;600&display=swap">
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <style>
-/* Layout: lobby → client (edge-to-edge light stage) | therapist (controls + live mirror) | solo (stage + controls drawer). One calm, dark session-room look. */
+/* Layout: lobby → client (edge-to-edge light stage) | therapist (controls + live mirror). One calm, dark session-room look. */
 :root {
   --night: #0b0f14; --panel: #131a22; --line: #233040; --ink: #e6edf3; --muted: #8da0b3;
   --calm: #5cc8ff; --go: #4fd18b; --wait: #e8b44c; --halt: #ff7a6b;
@@ -34,7 +34,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 .lobby-inner { width: 100%; max-width: 760px; display: grid; gap: 26px; }
 .lobby-inner h1 { font-size: clamp(28px, 6vw, 40px); letter-spacing: -0.01em; }
 .lobby-inner .lede { color: var(--muted); margin: 8px 0 0; max-width: 58ch; }
-.roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .role { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; cursor: pointer; display: grid; gap: 6px; align-content: start; }
 .role:hover { border-color: var(--calm); }
 .role strong { font-family: var(--display); font-size: 19px; font-weight: 500; }
@@ -58,7 +58,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 .btn.big { padding: 14px 26px; font-size: 17px; border-radius: 12px; }
 .btn.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
 
-/* Stage (client + solo) */
+/* Stage (client) */
 .stage-view { position: fixed; inset: 0; background: #000; }
 .stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .hud { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2;
@@ -75,10 +75,6 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 .center-note { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); text-align: center; color: var(--muted); font-size: 14px; pointer-events: none; transition: opacity .6s; padding: 0 16px; }
 .err { color: var(--halt); font-size: 14px; min-height: 1.2em; }
 
-/* Drawer (solo controls) */
-.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(420px, 100%); background: rgba(11,15,20,.96); border-left: 1px solid var(--line); z-index: 4; overflow-y: auto;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) max(14px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 24px) 14px; display: grid; gap: 14px; align-content: start; }
-.drawer-head { display: flex; justify-content: space-between; align-items: center; }
 
 /* Therapist */
 #therapist { min-height: 100%; padding-block: calc(env(safe-area-inset-top, 0px) + 18px) calc(env(safe-area-inset-bottom, 0px) + 40px); }
@@ -134,11 +130,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
         <strong>I'm the therapist</strong>
         <span>Get a session code, start and stop sets, and change speed, light and sound live.</span>
       </button>
-      <button class="role" id="pickSolo" type="button">
-        <div class="bar-demo"><i style="animation-duration:2.8s"></i></div>
-        <strong>Practise on my own</strong>
-        <span>Same light and sound with your own controls. Nothing is sent anywhere.</span>
-      </button>
     </div>
     <p class="fine">Not a substitute for therapy. Use with a qualified EMDR therapist. Either person can stop at any time.</p>
   </div>
@@ -171,25 +162,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   </div>
 </section>
 
-<!-- Solo -->
-<section id="solo" class="stage-view" hidden>
-  <canvas class="stage" id="sStage"></canvas>
-  <div class="hud" id="sHud">
-    <button class="btn small" id="sHome" type="button">Exit</button>
-    <div class="right"><button class="btn" id="sToggle" type="button">Controls</button></div>
-  </div>
-  <div class="overlay" id="sJoin">
-    <div class="card">
-      <h2>Practise on your own</h2>
-      <p>Headphones on, volume up. Open Controls to start a set and adjust the speed, light and sound.</p>
-      <button class="btn primary big" id="sBegin" type="button">Begin</button>
-    </div>
-  </div>
-  <aside class="drawer" id="drawer" hidden>
-    <div class="drawer-head"><h2 style="font-size:18px">Controls</h2><button class="btn small" id="sClose" type="button">Hide</button></div>
-    <div id="drawerSlot" style="display:grid;gap:14px"></div>
-  </aside>
-</section>
 
 <!-- Therapist -->
 <section id="therapist" class="wrap" hidden>
@@ -217,7 +189,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   </div>
 </section>
 
-<!-- Controls (moved into the therapist page or the solo drawer) -->
+<!-- Controls (placed into the therapist page) -->
 <template id="controlsTpl">
   <div class="box" data-part="session">
     <h2>Set</h2>
@@ -330,7 +302,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     g.globalAlpha = 1;
   }
 
-  // ---------------- player: light + sound on this device ----------------
+  // ---------------- player: light + sound on the client device ----------------
   function createPlayer(cv, { onStateChange } = {}) {
     let S = { ...DEFAULTS }, joined = false, paused = false, allowed = true, lastEpoch = -1;
     let ac = null, master = null, panOsc = null, panGain = null, panner = null, noiseBuf = null, nextTapK = 0, wakeLock = null;
@@ -482,7 +454,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     };
   }
 
-  // ---------------- controls (therapist + solo) ----------------
+  // ---------------- controls (therapist) ----------------
   function createControls(onChange, onStart, onStop) {
     const frag = $("controlsTpl").content.cloneNode(true);
     const parts = { session: frag.querySelector('[data-part="session"]'), settings: frag.querySelector('[data-part="settings"]') };
@@ -521,7 +493,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     };
   }
 
-  // A "conductor" owns the session state and runs the set clock (therapist and solo).
+  // A "conductor" owns the session state and runs the set clock (therapist only).
   function createConductor(publish) {
     let S = { ...DEFAULTS };
     try { const s = sanitize(JSON.parse(store.get("emdr-settings") || "null")); if (s) S = { ...s, running: false }; } catch {}
@@ -559,19 +531,17 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
 
   // ---------------- views ----------------
   let current = "lobby";
-  const conductorActive = () => current === "therapist" || current === "solo";
+  const conductorActive = () => current === "therapist";
   function show(view) {
     current = view;
-    for (const v of ["lobby", "client", "therapist", "solo"]) $(v).hidden = v !== view;
+    for (const v of ["lobby", "client", "therapist"]) $(v).hidden = v !== view;
     if (view === "client") startClient();
     if (view === "therapist") startTherapist();
-    if (view === "solo") startSolo();
   }
   const params = new URLSearchParams(location.search);
   $("pickClient").onclick = () => { location.hash = "client"; };
   $("pickTherapist").onclick = () => { location.hash = "therapist"; };
-  $("pickSolo").onclick = () => { location.hash = "solo"; };
-  const route = () => { const h = location.hash.slice(1); show(["client", "therapist", "solo"].includes(h) ? h : "lobby"); };
+  const route = () => { const h = location.hash.slice(1); show(["client", "therapist"].includes(h) ? h : "lobby"); };
   window.addEventListener("hashchange", route);
 
   // ---- client ----
@@ -681,21 +651,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     (function frame() { draw($("mirror"), conductor.frame(), conductor.state, conductor.state.running); requestAnimationFrame(frame); })();
   }
 
-  // ---- solo ----
-  let soloUp = false;
-  function startSolo() {
-    if (soloUp) return; soloUp = true;
-    const player = createPlayer($("sStage"), { onStateChange: () => $("sHud").classList.toggle("dim", player.playing && $("drawer").hidden) });
-    const conductor = createConductor((S) => player.apply(S));
-    $("drawerSlot").append(conductor.ctl.parts.session, conductor.ctl.parts.settings);
-    player.apply({ ...conductor.state });
-    const openDrawer = (o) => { $("drawer").hidden = !o; $("sHud").classList.toggle("dim", player.playing && !o); };
-    $("sBegin").onclick = () => { player.join(); $("sJoin").hidden = true; openDrawer(true); };
-    $("sToggle").onclick = () => openDrawer($("drawer").hidden);
-    $("sClose").onclick = () => openDrawer(false);
-    $("sHome").onclick = () => { conductor.stop(); location.hash = ""; };
-    (function frame() { conductor.frame(); requestAnimationFrame(frame); })();
-  }
 
   route();
 })();
