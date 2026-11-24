@@ -61,17 +61,23 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 /* Stage (client) */
 .stage-view { position: fixed; inset: 0; background: #000; }
 .stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.hud { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
-  padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); transition: opacity .6s; }
-.hud.dim { opacity: .18; }
-.hud .right { display: flex; gap: 8px; }
 .overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(5,8,12,.9); z-index: 3; overflow-y: auto; }
 .overlay .card { max-width: 440px; width: 100%; display: grid; gap: 14px; justify-items: center; }
 .overlay h2 { font-size: 24px; }
 .overlay p { color: var(--muted); margin: 0; }
 .code-input { width: 100%; max-width: 280px; text-align: center; font-family: var(--display); font-size: 30px; letter-spacing: .18em; text-transform: uppercase;
   background: var(--night); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.whisper { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px); transform: translateX(-50%); z-index: 2; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); background: rgba(11,15,20,.5); border-radius: 999px; padding: 4px 10px;
+  opacity: 0; transition: opacity .9s ease; white-space: nowrap; }
+.whisper.show { opacity: .65; }
+.whisper .dot { width: 6px; height: 6px; box-shadow: none; }
+.toast { position: fixed; z-index: 20; top: calc(env(safe-area-inset-top, 0px) + 16px); right: max(16px, env(safe-area-inset-right, 0px));
+  display: inline-flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45); font-size: 15px; opacity: 0; transform: translateY(-6px); transition: opacity .3s ease, transform .3s ease; pointer-events: none; }
+.toast.show { opacity: 1; transform: none; }
+.toast.off { border-color: color-mix(in srgb, var(--halt) 55%, transparent); }
+@media (prefers-reduced-motion: reduce) { .toast { transform: none; } }
 .center-note { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); text-align: center; color: var(--muted); font-size: 14px; pointer-events: none; transition: opacity .6s; padding: 0 16px; }
 .err { color: var(--halt); font-size: 14px; min-height: 1.2em; }
 
@@ -138,9 +144,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
 <!-- Client -->
 <section id="client" class="stage-view" hidden>
   <canvas class="stage" id="cStage"></canvas>
-  <div class="hud" id="cHud">
-    <span class="pill"><span class="dot" id="cDot"></span><span id="cStatus">Not connected</span></span>
-  </div>
+  <div class="whisper" id="cWhisper" role="status" aria-live="polite"><span class="dot" id="cWDot"></span><span id="cWText"></span></div>
   <div class="center-note" id="cNote"></div>
   <div class="overlay" id="cJoin">
     <form class="card" id="cJoinForm" autocomplete="off">
@@ -157,6 +161,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
 
 <!-- Therapist -->
 <section id="therapist" class="wrap" hidden>
+  <div class="toast" id="tToast" role="status" aria-live="polite"><span class="dot" id="tTDot"></span><span id="tTText"></span></div>
   <div class="t-head">
     <h1>Therapist controls</h1>
     <span class="pill"><span class="dot" id="tDot"></span><span id="tConn">Connecting…</span></span>
@@ -234,6 +239,8 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
   const TOPIC = (code) => `emdr-session-room/v1/${code}`;
+  // Presence older than this is a leftover from an earlier visit (the relay keeps the last message), not someone here now.
+  const fresh = (d) => d && typeof d.at === "number" && Math.abs(Date.now() - d.at) < 40000;
   const myId = Math.random().toString(36).slice(2, 10);
   // Public web address of this page; used for the client link when the page runs inside the Mac app.
   const PUBLIC_URL = "https://jcal15.github.io/emdr-session-room/";
@@ -297,19 +304,53 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   // ---------------- player: light + sound on the client device ----------------
   function createPlayer(cv, { onStateChange } = {}) {
     let S = { ...DEFAULTS }, joined = false, allowed = true, lastEpoch = -1;
-    let ac = null, master = null, panOsc = null, panGain = null, panner = null, noiseBuf = null, nextTapK = 0, wakeLock = null;
-    const m = { phase: 0, t: 0, rate: 1, active: false };
-    const now = () => (ac ? ac.currentTime : performance.now() / 1000);
-    const advance = (t) => { if (m.active) m.phase += (t - m.t) * m.rate / 2; m.t = t; };
+    let ac = null, master = null, panOsc = null, panGain = null, panner = null, noiseBuf = null, wakeLock = null;
+    let nextTapK = 0, panT = 0, scheduled = [];
+    // Motion runs on the audio clock: phase(t) = phase0 + (t − t0)·rate/2, so sound and light come from one formula.
+    const m = { phase0: 0, t0: 0, rate: 1, active: false };
+    const clock = () => (ac ? ac.currentTime : performance.now() / 1000);
+    const phaseAt = (t) => {
+      let p = m.active ? m.phase0 + (t - m.t0) * m.rate / 2 : m.phase0;
+      p = Math.max(0, p);
+      if (S.autoStop > 0) p = Math.min(p, S.autoStop / 2); // hold at the final side
+      return p;
+    };
+    // The moment of the audio clock that is reaching the ears right now (after output / Bluetooth delay).
+    function heardTime() {
+      if (!ac) return clock();
+      const now = ac.currentTime;
+      let heard = now - (ac.outputLatency || 0) - (ac.baseLatency || 0);
+      try {
+        const ts = ac.getOutputTimestamp && ac.getOutputTimestamp();
+        if (ts && ts.contextTime > 0 && ts.performanceTime > 0) heard = ts.contextTime + (performance.now() - ts.performanceTime) / 1000;
+      } catch {}
+      return Math.min(now, Math.max(now - 0.6, heard));
+    }
     const playing = () => joined && allowed && S.running;
 
+    function cancelFuture() { // drop taps and pan moves scheduled for a motion that no longer applies
+      if (!ac) return;
+      const t = ac.currentTime;
+      scheduled = scheduled.filter((x) => { if (x.when > t) { try { x.out.disconnect(); } catch {} return false; } return x.when + 1 > t; });
+      if (panner) { panner.pan.cancelScheduledValues(t); panner.pan.setValueAtTime(xOf(phaseAt(t)), t); }
+      panT = t;
+    }
+    function rebase(lead) { // keep the motion continuous from now on, with the current rate
+      const t = clock() + lead;
+      m.phase0 = phaseAt(t); m.t0 = t; m.rate = S.rate;
+      nextTapK = Math.ceil(m.phase0 * 2 - 1e-9);
+    }
     function refresh() {
-      const t = now(); advance(t);
-      const was = m.active;
-      m.rate = S.rate;
-      if (S.running && S.epoch !== lastEpoch) { lastEpoch = S.epoch; m.phase = 0; nextTapK = 0; }
-      m.active = playing() && !(S.autoStop > 0 && passesOf(m.phase) >= S.autoStop);
-      if (!was && m.active) m.t = t;
+      let was = m.active;
+      if (S.running && S.epoch !== lastEpoch) { // a new set: the light starts at the left, the first tap with it
+        lastEpoch = S.epoch;
+        m.active = false; m.phase0 = 0; m.t0 = clock() + 0.12; m.rate = S.rate; nextTapK = 0; was = false;
+        cancelFuture();
+      }
+      const want = playing();
+      if (want && !was) { m.t0 = Math.max(m.t0, clock() + 0.12); m.active = true; nextTapK = Math.ceil(m.phase0 * 2 - 1e-9); cancelFuture(); }
+      else if (!want && was) { rebase(0); m.active = false; cancelFuture(); }
+      else if (want && m.rate !== S.rate) { rebase(0.03); cancelFuture(); }
       updatePanTone();
       onStateChange && onStateChange();
     }
@@ -324,47 +365,52 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       if (ac) { ac.resume().catch(() => {}); return; }
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
-        ac = new AC();
+        ac = new AC({ latencyHint: "interactive" });
         master = ac.createGain(); master.connect(ac.destination);
         noiseBuf = ac.createBuffer(1, Math.round(ac.sampleRate * 0.03), ac.sampleRate);
         const d = noiseBuf.getChannelData(0); let lp = 0;
         for (let i = 0; i < d.length; i++) { lp += 0.35 * ((Math.random() * 2 - 1) - lp); d[i] = lp * Math.exp(-6 * i / d.length) * 2.2; }
         ac.resume().catch(() => {});
         try { const el = new Audio(silentWavUrl()); el.loop = true; el.play().catch(() => {}); } catch {}
-        m.t = ac.currentTime;
+        m.t0 = ac.currentTime;
       } catch { ac = null; }
     }
+    // Every tap starts at full strength at `when` (4 ms attack), so its onset is the moment the light reaches the side.
     function tap(when, side) {
       if (!ac || S.audio !== "taps" || S.volume <= 0) return;
       const vol = S.volume * 0.5, out = ac.createGain(), pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
       out.gain.value = 0;
       if (pan) { pan.pan.value = side; out.connect(pan); pan.connect(master); } else out.connect(master);
+      scheduled.push({ when, out, side });
       if (S.sound === "click") {
         const src = ac.createBufferSource(); src.buffer = noiseBuf; src.connect(out);
         out.gain.setValueAtTime(vol, when); src.start(when); src.stop(when + 0.05); return;
       }
-      const len = S.sound === "chime" ? 0.45 : 0.14, o = ac.createOscillator();
+      const len = S.sound === "chime" ? 0.45 : 0.16, o = ac.createOscillator();
       o.type = "sine"; o.frequency.value = S.pitch; o.connect(out);
       if (S.sound === "chime") {
         const o2 = ac.createOscillator(), g2 = ac.createGain(); o2.frequency.value = S.pitch * 2.01; g2.gain.value = 0.3; o2.connect(g2); g2.connect(out);
         o2.start(when); o2.stop(when + len + 0.02);
-        out.gain.setValueAtTime(0, when); out.gain.linearRampToValueAtTime(vol, when + 0.005); out.gain.exponentialRampToValueAtTime(0.0005, when + len);
-      } else {
-        out.gain.setValueAtTime(0, when); out.gain.linearRampToValueAtTime(vol, when + len * 0.35); out.gain.linearRampToValueAtTime(0, when + len);
       }
+      out.gain.setValueAtTime(0, when);
+      out.gain.linearRampToValueAtTime(vol, when + 0.004);
+      out.gain.exponentialRampToValueAtTime(0.0005, when + len);
       o.start(when); o.stop(when + len + 0.02);
     }
-    function scheduleTaps() { // look-ahead: each tap lands exactly when the light reaches that side
-      if (!ac || !m.active || S.audio !== "taps") return;
-      const t = ac.currentTime; advance(t);
-      const speed = m.rate / 2;
-      if (nextTapK < passesOf(m.phase)) nextTapK = passesOf(m.phase) + (m.phase * 2 % 1 < 1e-6 ? 0 : 1);
-      for (;;) {
-        if (S.autoStop > 0 && nextTapK > S.autoStop) break;
-        const when = t + (nextTapK / 2 - m.phase) / speed;
-        if (when > t + 0.15) break;
-        tap(Math.max(t, when), nextTapK % 2 === 0 ? -1 : 1);
-        nextTapK++;
+    function schedule() { // look-ahead scheduler on the audio clock
+      if (!ac || !m.active) return;
+      const t = ac.currentTime, horizon = t + 0.12;
+      if (S.audio === "taps") {
+        for (;;) {
+          if (S.autoStop > 0 && nextTapK > S.autoStop) break;
+          const when = m.t0 + (nextTapK / 2 - m.phase0) / (m.rate / 2);
+          if (when > horizon) break;
+          if (when >= t - 0.003) tap(Math.max(t, when), nextTapK % 2 === 0 ? -1 : 1);
+          nextTapK++;
+        }
+      } else if (S.audio === "pan" && panner) { // pan automation drawn from the same motion, 10 ms steps
+        panT = Math.max(panT, t);
+        while (panT < horizon) { panT += 0.01; panner.pan.linearRampToValueAtTime(xOf(phaseAt(panT)), panT); }
       }
     }
     function updatePanTone() {
@@ -374,33 +420,34 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
         panOsc = ac.createOscillator(); panOsc.type = "sine"; panGain = ac.createGain(); panGain.gain.value = 0;
         panner = ac.createStereoPanner ? ac.createStereoPanner() : null;
         panOsc.connect(panGain); if (panner) { panGain.connect(panner); panner.connect(master); } else panGain.connect(master);
+        if (panner) { panner.pan.setValueAtTime(xOf(phaseAt(ac.currentTime)), ac.currentTime); panT = ac.currentTime; }
         panOsc.start();
       }
       if (panOsc) {
         panOsc.frequency.setTargetAtTime(S.pitch, ac.currentTime, 0.05);
-        panGain.gain.setTargetAtTime(want ? S.volume * 0.25 : 0, ac.currentTime, 0.15);
+        panGain.gain.setTargetAtTime(want ? S.volume * 0.25 : 0, ac.currentTime, 0.08);
       }
     }
     async function keepAwake() {
       try { if ("wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch {}
     }
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && joined) { keepAwake(); ac && ac.resume().catch(() => {}); } });
-    setInterval(scheduleTaps, 25);
+    setInterval(schedule, 20);
     (function frame() {
-      const t = now(); advance(t);
-      if (m.active && S.autoStop > 0 && passesOf(m.phase) >= S.autoStop) { m.phase = S.autoStop / 2; m.active = false; updatePanTone(); }
-      const x = xOf(m.phase);
-      if (panner && ac) panner.pan.setTargetAtTime(x, ac.currentTime, 0.01);
-      draw(cv, x, S, playing());
+      // Draw the light where the motion was at the moment now being heard, so sight and sound match at the ear.
+      draw(cv, xOf(phaseAt(heardTime())), S, playing());
       requestAnimationFrame(frame);
     })();
 
     return {
       join() { initAudio(); joined = true; keepAwake(); if (ac && S.audio === "taps") tap(ac.currentTime + 0.05, -1); refresh(); },
-      apply(next) { S = next; refresh(); },
+      apply(next) { const audioChanged = next.audio !== S.audio || next.sound !== S.sound || next.pitch !== S.pitch || next.volume !== S.volume; S = next; if (audioChanged && m.active) { rebase(0.03); cancelFuture(); } refresh(); },
       setAllowed(a) { if (a !== allowed) { allowed = a; refresh(); } },
       get state() { return S; }, get joined() { return joined; },
       get soundOn() { return !!(ac && ac.state === "running"); }, get playing() { return playing(); },
+      // For timing checks: the motion model and the tap times it scheduled.
+      _timing: () => ({ m: { ...m }, heard: heardTime(), now: clock(), taps: scheduled.map((x) => ({ when: x.when, side: x.side })) }),
+      _xAt: (t) => xOf(phaseAt(t)),
     };
   }
 
@@ -541,19 +588,24 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     if (clientUp) return; clientUp = true;
     let relay = null, therapistSeen = new Map(), connected = false, lastRev = 0;
     const player = createPlayer($("cStage"), { onStateChange: render });
+    if (params.has("timing")) window.__emdrPlayer = player; // only for timing checks
     const therapistHere = () => [...therapistSeen.values()].some((at) => Date.now() - at < 35000);
     const prefill = (params.get("code") || store.get("emdr-client-code") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     $("cCode").value = prefill;
-    let lastPres = "";
+    let lastPres = "", wasHere = null, whisperTimer = null;
+    function whisper(here) { // brief, faint notice only when the therapist arrives or leaves
+      $("cWDot").className = "dot " + (here ? "on" : "wait");
+      $("cWText").textContent = here ? "Therapist connected" : "Therapist disconnected";
+      $("cWhisper").classList.add("show");
+      clearTimeout(whisperTimer); whisperTimer = setTimeout(() => $("cWhisper").classList.remove("show"), 3500);
+    }
     function render(force) {
       const here = therapistHere();
       player.setAllowed(here);
-      $("cDot").className = "dot " + (here ? "on" : connected ? "wait" : "");
-      $("cStatus").textContent = !player.joined ? "Not connected" : !connected ? "Connecting…" : here ? "Therapist connected" : "Waiting for therapist";
+      if (player.joined && here !== wasHere) { if (here || wasHere) whisper(here); wasHere = here; }
       const playing = player.playing;
-      $("cHud").classList.toggle("dim", playing);
-      $("cNote").style.opacity = playing || !player.joined ? 0 : 1;
-      $("cNote").textContent = !connected ? "Connecting to the session…" : !here ? "Waiting for your therapist to open the session" : "Your therapist will start the next set";
+      $("cNote").style.opacity = !player.joined || here ? 0 : 1; // only while waiting for the therapist
+      $("cNote").textContent = !connected ? "Connecting to the session…" : "Waiting for your therapist";
       const pres = { role: "client", joined: player.joined, sound: player.soundOn, playing };
       const key = JSON.stringify(pres);
       if (relay && relay.connected() && (force === true || key !== lastPres)) { lastPres = key; relay.setPresence(pres); }
@@ -566,7 +618,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       player.join(); $("cJoin").hidden = true;
       relay = createRelay(code, {
         onState(d) { const s = sanitize(d); if (!s || s.rev < lastRev) return; lastRev = s.rev; player.apply(s); },
-        onPresence(id, d) { if (d && d.role === "therapist") therapistSeen.set(id, Date.now()); else therapistSeen.delete(id); render(); },
+        onPresence(id, d) { if (fresh(d) && d.role === "therapist") therapistSeen.set(id, Date.now()); else therapistSeen.delete(id); render(); },
         onConnection(ok, msg) { connected = ok; if (msg) $("cNote").textContent = msg; render(true); },
       });
       render();
@@ -603,9 +655,9 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
         onState() {},
         onPresence(id, d) {
           const isNew = !clients.has(id);
-          if (d && d.role === "client") clients.set(id, { data: d, seen: Date.now() }); else clients.delete(id);
+          if (fresh(d) && d.role === "client") clients.set(id, { data: d, seen: Date.now() }); else clients.delete(id);
           renderClients();
-          if (isNew && d) conductor.resend(); // newcomers also get the retained state from the relay
+          if (isNew && fresh(d)) conductor.resend(); // newcomers also get the retained state from the relay
         },
         onConnection(ok, msg) {
           connected = ok;
@@ -616,7 +668,20 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
         },
       });
     }
+    let knownIds = new Set(), toastTimer = null;
+    function toast(on, text) {
+      $("tTDot").className = "dot " + (on ? "on" : "");
+      $("tTText").textContent = text;
+      $("tToast").classList.toggle("off", !on);
+      $("tToast").classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => $("tToast").classList.remove("show"), 4500);
+    }
     function renderClients() {
+      const liveIds = new Set([...clients.entries()].filter(([, c]) => Date.now() - c.seen < 35000).map(([id]) => id));
+      const added = [...liveIds].filter((id) => !knownIds.has(id)).length, gone = [...knownIds].filter((id) => !liveIds.has(id)).length;
+      if (added) toast(true, added > 1 ? `${added} clients connected` : "Client connected");
+      else if (gone) toast(false, gone > 1 ? `${gone} clients disconnected` : "Client disconnected");
+      knownIds = liveIds;
       const box = $("clientStatus"); box.textContent = "";
       const pill = (cls, text) => { const p = document.createElement("div"); p.className = "pill"; const d = document.createElement("span"); d.className = "dot " + cls; const s = document.createElement("span"); s.textContent = text; p.append(d, s); return p; };
       const live = [...clients.values()].filter((c) => Date.now() - c.seen < 35000);
