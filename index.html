@@ -119,6 +119,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap
 .row label, .row .lbl { color: var(--muted); font-size: 14px; }
 .row output { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
 input[type=range] { width: 100%; accent-color: var(--calm); }
+select.timer { width: 100%; background: var(--night); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 14px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg button { border: 1px solid var(--line); background: var(--night); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 14px; }
 .seg button[aria-pressed=true] { border-color: var(--calm); color: var(--calm); }
@@ -310,7 +311,12 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       <div class="stat"><b data-k="time">0:00</b><span>set time</span></div>
       <div class="stat"><b data-k="sets">0</b><span>sets so far</span></div>
     </div>
-    <div class="row"><label>Auto-stop</label><input type="range" data-k="autoStop" min="0" max="60" step="2" aria-label="Auto-stop after passes"><output data-o="autoStop"></output></div>
+    <div class="row"><label>Set timer</label>
+      <select class="timer" data-k="timer" aria-label="Stop the set after">
+        <option value="0">Never stop</option><option value="30">30 seconds</option><option value="60">1 minute</option>
+        <option value="90">1½ minutes</option><option value="120">2 minutes</option><option value="150">2½ minutes</option>
+        <option value="180">3 minutes</option><option value="240">4 minutes</option><option value="300">5 minutes</option>
+      </select><output data-o="timer"></output></div>
     <p class="fine">Shortcut: space bar starts and stops a set.</p>
   </div>
   <div class="box" data-part="settings">
@@ -360,7 +366,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
   const DEFAULTS = {
     running: false, epoch: 0, rev: 0,
     rate: 1.0, style: "bar", color: "#5cc8ff", size: 4, opacity: 0.9, brightness: 0.8, bg: "#000000",
-    audio: "taps", sound: "tone", pitch: 440, volume: 0.6, autoStop: 24,
+    audio: "taps", sound: "tone", pitch: 440, volume: 0.6, timer: 0,
   };
   function sanitize(d) {
     if (!d || typeof d !== "object") return null;
@@ -372,7 +378,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       rate: num(d.rate, 0.3, 3, 1), style: pick(d.style, ["bar", "sweep", "none"], "bar"), color: hex(d.color, "#5cc8ff"),
       size: num(d.size, 1, 14, 4), opacity: num(d.opacity, 0.05, 1, 0.9), brightness: num(d.brightness, 0, 1, 0.8), bg: hex(d.bg, "#000000"),
       audio: pick(d.audio, ["taps", "pan", "off"], "taps"), sound: pick(d.sound, ["tone", "chime", "click"], "tone"),
-      pitch: num(d.pitch, 150, 1000, 440), volume: num(d.volume, 0, 1, 0.6), autoStop: num(d.autoStop, 0, 60, 24),
+      pitch: num(d.pitch, 150, 1000, 440), volume: num(d.volume, 0, 1, 0.6), timer: num(d.timer, 0, 300, 0),
     };
   }
   const xOf = (phase) => -Math.cos(2 * Math.PI * phase);       // −1 left … +1 right
@@ -423,7 +429,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     const phaseAt = (t) => {
       let p = m.active ? m.phase0 + (t - m.t0) * m.rate / 2 : m.phase0;
       p = Math.max(0, p);
-      if (S.autoStop > 0) p = Math.min(p, S.autoStop / 2); // hold at the final side
       return p;
     };
     // The moment of the audio clock that is reaching the ears right now (after output / Bluetooth delay).
@@ -513,7 +518,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       const t = ac.currentTime, horizon = t + 0.12;
       if (S.audio === "taps") {
         for (;;) {
-          if (S.autoStop > 0 && nextTapK > S.autoStop) break;
           const when = m.t0 + (nextTapK / 2 - m.phase0) / (m.rate / 2);
           if (when > horizon) break;
           if (when >= t - 0.003) tap(Math.max(t, when), nextTapK % 2 === 0 ? -1 : 1);
@@ -613,7 +617,6 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     const fmt = {
       rate: (v) => v.toFixed(2) + "/s", opacity: (v) => Math.round(v * 100) + "%", brightness: (v) => Math.round(v * 100) + "%",
       size: (v) => v.toFixed(1) + "%", pitch: (v) => Math.round(v) + " Hz", volume: (v) => Math.round(v * 100) + "%",
-      autoStop: (v) => (v === 0 ? "Off" : v + " passes"),
     };
     let S = null;
     for (const c of COLORS) {
@@ -621,6 +624,8 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       b.onclick = () => onChange("color", c); q("[data-swatches]").appendChild(b);
     }
     for (const inp of qa("input[type=range][data-k]")) inp.addEventListener("input", () => onChange(inp.dataset.k, Number(inp.value)));
+    const timerSel = q('select[data-k="timer"]');
+    timerSel.addEventListener("change", () => onChange("timer", Number(timerSel.value)));
     for (const seg of qa("[data-seg]")) seg.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) onChange(seg.dataset.seg, b.dataset.v); });
     q('[data-k="start"]').onclick = onStart; q('[data-k="stop"]').onclick = onStop;
     return {
@@ -628,13 +633,16 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
       sync(next, setsDone) {
         S = next;
         for (const inp of qa("input[type=range][data-k]")) { const k = inp.dataset.k; if (document.activeElement !== inp) inp.value = S[k]; q(`[data-o="${k}"]`).textContent = fmt[k](S[k]); }
+        if (![...timerSel.options].some((o) => Number(o.value) === S.timer)) S.timer = 0;
+        timerSel.value = String(S.timer);
         for (const seg of qa("[data-seg]")) for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === S[seg.dataset.seg]));
         for (const b of q("[data-swatches]").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === S.color));
         q('[data-seg="sound"]').hidden = S.audio !== "taps";
         q('[data-k="start"]').disabled = S.running; q('[data-k="stop"]').disabled = !S.running;
         q('[data-k="start"]').textContent = setsDone > 0 ? "Start next set" : "Start set";
       },
-      stats(passes, secs, sets) {
+      stats(passes, secs, sets, left) {
+        q('[data-o="timer"]').textContent = left;
         q('[data-k="passes"]').textContent = passes;
         q('[data-k="time"]').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
         q('[data-k="sets"]').textContent = sets;
@@ -652,7 +660,7 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     function emit(now) {
       S.rev = Math.max(S.rev + 1, Date.now());
       store.set("emdr-settings", JSON.stringify({ ...S, running: false }));
-      const go = () => { lastSend = Date.now(); sendTimer = null; publish({ ...S }); };
+      const go = () => { lastSend = Date.now(); sendTimer = null; publish({ ...S, autoStop: 0 }); };
       if (now || Date.now() - lastSend > 150) { clearTimeout(sendTimer); go(); } else if (!sendTimer) sendTimer = setTimeout(go, 150);
     }
     function tick() { const t = performance.now() / 1000; if (S.running) phase += (t - t0) * S.rate / 2; t0 = t; }
@@ -666,13 +674,16 @@ input[type=range] { width: 100%; accent-color: var(--calm); }
     });
     ctl.sync(S, setsDone);
     return {
-      ctl, start, stop, resend() { publish({ ...S }); },
+      ctl, start, stop, resend() { publish({ ...S, autoStop: 0 }); },
       get state() { return S; },
       frame() {
         tick();
-        if (S.running && S.autoStop > 0 && passesOf(phase) >= S.autoStop) { phase = S.autoStop / 2; stop(); }
-        const passes = S.running || phase > 0 ? Math.min(passesOf(phase), S.autoStop || Infinity) : 0;
-        ctl.stats(passes, S.running ? Math.floor((Date.now() - setStartedAt) / 1000) : 0, setsDone);
+        const elapsed = S.running ? (Date.now() - setStartedAt) / 1000 : 0;
+        if (S.running && S.timer > 0 && elapsed >= S.timer) stop();             // set timer reached
+        const passes = S.running || phase > 0 ? passesOf(phase) : 0;
+        const fmtT = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+        const left = S.timer === 0 ? (S.running ? "no limit" : "") : S.running ? fmtT(Math.max(0, Math.ceil(S.timer - elapsed))) + " left" : "";
+        ctl.stats(passes, Math.floor(elapsed), setsDone, left);
         return xOf(phase);
       },
     };
